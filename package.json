@@ -4,6 +4,15 @@
   "description": "A unified TypeScript client for interacting with various LLM providers",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/faizancodes/llm-chain.git"
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest",

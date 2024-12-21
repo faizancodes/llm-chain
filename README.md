@@ -2,6 +2,12 @@
 
 A TypeScript library for easily interacting with various Large Language Model providers through a unified interface.
 
+## Installation
+
+```bash
+npm install llm-chain
+```
+
 ## Features
 
 - Unified interface for multiple LLM providers:
