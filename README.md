@@ -23,7 +23,6 @@ npm install llm-chain
 - Provider-specific optimizations
 - Support for multiple deployment options (Direct API, AWS Bedrock, Google Vertex)
 
-
 ## Usage
 
 ### OpenAI

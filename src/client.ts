@@ -2,6 +2,7 @@ import {
   ChatCompletionOptions,
   ChatCompletionResponse,
   LLMProvider,
+  TimingInfo,
 } from "./types";
 import { OpenAIProvider } from "./providers/openai";
 import { GroqProvider } from "./providers/groq";
@@ -10,6 +11,9 @@ import { AnthropicProvider } from "./providers/anthropic";
 import { getDefaultGroqModel } from "./models/groq";
 import { getDefaultGeminiModel } from "./models/gemini";
 import { getDefaultAnthropicModel } from "./models/anthropic";
+import { DeepSeekProvider } from "./providers/deepseek";
+import { XAIProvider } from "./providers/xAI";
+import { measureResponseTime, StreamingMetrics } from "./utils/timing";
 
 export class LLMClient {
   private provider: LLMProvider;
@@ -39,6 +43,14 @@ export class LLMClient {
     );
   }
 
+  static createDeepSeek(apiKey: string): LLMClient {
+    return new LLMClient(new DeepSeekProvider(apiKey), "deepseek-chat");
+  }
+
+  static createXAI(apiKey: string): LLMClient {
+    return new LLMClient(new XAIProvider(apiKey), "claude-3-5-sonnet-20240620");
+  }
+
   async chatCompletion(
     options: ChatCompletionOptions
   ): Promise<ChatCompletionResponse> {
@@ -47,19 +59,29 @@ export class LLMClient {
 
   async streamChatCompletion(
     options: ChatCompletionOptions,
-    onMessage: (message: string) => void
+    onMessage: (message: string) => void,
+    onTiming?: (timing: TimingInfo & { streaming?: StreamingMetrics }) => void
   ): Promise<void> {
-    return this.provider.streamChatCompletion(options, onMessage);
+    return this.provider.streamChatCompletion(options, onMessage, onTiming);
   }
 
   // Helper method for simple completions
-  async complete(prompt: string, model?: string): Promise<string> {
-    const response = await this.chatCompletion({
-      model: model || this.defaultModel,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 1,
-      stream: false,
+  async complete(
+    prompt: string,
+    model?: string
+  ): Promise<{ content: string; timing: TimingInfo }> {
+    const { timing, result } = await measureResponseTime(async () => {
+      return this.chatCompletion({
+        model: model || this.defaultModel,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 1,
+        stream: false,
+      });
     });
-    return response.message.content;
+
+    return {
+      content: result.message.content,
+      timing,
+    };
   }
 }

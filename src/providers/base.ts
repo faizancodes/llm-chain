@@ -3,7 +3,9 @@ import {
   ChatCompletionOptions,
   ChatCompletionResponse,
   LLMProvider,
+  TimingInfo,
 } from "../types";
+import { measureResponseTime, StreamingMetrics } from "../utils/timing";
 
 export abstract class BaseLLMProvider implements LLMProvider {
   protected client: AxiosInstance;
@@ -22,18 +24,29 @@ export abstract class BaseLLMProvider implements LLMProvider {
 
   abstract chatCompletion(
     options: ChatCompletionOptions
-  ): Promise<ChatCompletionResponse>;
+  ): Promise<ChatCompletionResponse & { timing?: TimingInfo }>;
 
   abstract streamChatCompletion(
     options: ChatCompletionOptions,
-    onMessage: (message: string) => void
+    onMessage: (message: string) => void,
+    onTiming?: (timing: TimingInfo & { streaming?: StreamingMetrics }) => void
   ): Promise<void>;
+
+  protected async measureApiCall<T>(
+    apiCall: () => Promise<T>
+  ): Promise<T & { timing?: TimingInfo }> {
+    const { timing, result } = await measureResponseTime(apiCall);
+    return { ...result, timing };
+  }
 
   protected handleError(error: unknown): never {
     if (axios.isAxiosError(error)) {
-      throw new Error(
+      const timingError = error as Error & { timing?: TimingInfo };
+      const errorObj = new Error(
         `API request failed: ${error.response?.data?.error?.message || error.message}`
       );
+      Object.assign(errorObj, { timing: timingError.timing });
+      throw errorObj;
     }
     throw error;
   }

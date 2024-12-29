@@ -6,6 +6,7 @@ import {
   ChatCompletionOptions,
   ChatCompletionResponse,
   Message,
+  TimingInfo,
 } from "../types";
 import {
   getAnthropicModel,
@@ -18,6 +19,11 @@ import {
   estimateTokensForMessages,
   formatTokenCount,
 } from "../utils/token-counter";
+import {
+  measureResponseTime,
+  createStreamMetricsCollector,
+  StreamingMetrics,
+} from "../utils/timing";
 
 // Define provider types
 type ProviderType = "direct" | "bedrock" | "vertex";
@@ -179,11 +185,6 @@ export class AnthropicProvider extends BaseLLMProvider {
           `model limit of ${formatTokenCount(limit)} for ${model} on ${this.providerType}`
       );
     }
-
-    // Log token usage for debugging
-    console.debug(
-      `Token usage for ${model} on ${this.providerType}: ${formatTokenCount(estimatedTokens)} / ${formatTokenCount(limit)}`
-    );
   }
 
   private validateTemperature(temperature?: number): number {
@@ -217,7 +218,7 @@ export class AnthropicProvider extends BaseLLMProvider {
 
   async chatCompletion(
     options: ChatCompletionOptions
-  ): Promise<ChatCompletionResponse> {
+  ): Promise<ChatCompletionResponse & { timing?: TimingInfo }> {
     try {
       this.validateModel(options.model);
       this.validateInputTokens(options.model, options.messages);
@@ -229,55 +230,59 @@ export class AnthropicProvider extends BaseLLMProvider {
 
       const { messages } = this.formatMessages(options.messages);
 
-      // Handle provider-specific API calls
-      let response;
-      if (this.providerType === "bedrock") {
-        response = await (this.anthropic as AnthropicBedrock).messages.create({
-          model: `anthropic.${options.model}`,
-          messages,
-          system: options.system,
-          max_tokens: maxTokens,
-          temperature,
-          stop_sequences: options.stop ? [options.stop].flat() : undefined,
-        });
-      } else if (this.providerType === "vertex") {
-        response = await (this.anthropic as AnthropicVertex).messages.create({
-          model: options.model,
-          messages,
-          system: options.system,
-          max_tokens: maxTokens,
-          temperature,
-          stop_sequences: options.stop ? [options.stop].flat() : undefined,
-        });
-      } else {
-        response = await (this.anthropic as Anthropic).messages.create({
-          model: options.model,
-          messages,
-          system: options.system,
-          max_tokens: maxTokens,
-          temperature,
-          stop_sequences: options.stop ? [options.stop].flat() : undefined,
-        });
-      }
+      return await this.measureApiCall(async () => {
+        // Handle provider-specific API calls
+        let response;
+        if (this.providerType === "bedrock") {
+          response = await (this.anthropic as AnthropicBedrock).messages.create(
+            {
+              model: `anthropic.${options.model}`,
+              messages,
+              system: options.system,
+              max_tokens: maxTokens,
+              temperature,
+              stop_sequences: options.stop ? [options.stop].flat() : undefined,
+            }
+          );
+        } else if (this.providerType === "vertex") {
+          response = await (this.anthropic as AnthropicVertex).messages.create({
+            model: options.model,
+            messages,
+            system: options.system,
+            max_tokens: maxTokens,
+            temperature,
+            stop_sequences: options.stop ? [options.stop].flat() : undefined,
+          });
+        } else {
+          response = await (this.anthropic as Anthropic).messages.create({
+            model: options.model,
+            messages,
+            system: options.system,
+            max_tokens: maxTokens,
+            temperature,
+            stop_sequences: options.stop ? [options.stop].flat() : undefined,
+          });
+        }
 
-      // Convert provider-specific response to ChatCompletionResponse format
-      const textContent = response.content.find(c => c.type === "text");
+        // Convert provider-specific response to ChatCompletionResponse format
+        const textContent = response.content.find(c => c.type === "text");
 
-      return {
-        id: response.id,
-        model: response.model,
-        message: {
-          role: "assistant",
-          content: textContent?.text || "",
-        },
-        usage: {
-          promptTokens: response.usage?.input_tokens || 0,
-          completionTokens: response.usage?.output_tokens || 0,
-          totalTokens:
-            (response.usage?.input_tokens || 0) +
-            (response.usage?.output_tokens || 0),
-        },
-      };
+        return {
+          id: response.id,
+          model: response.model,
+          message: {
+            role: "assistant",
+            content: textContent?.text || "",
+          },
+          usage: {
+            promptTokens: response.usage?.input_tokens || 0,
+            completionTokens: response.usage?.output_tokens || 0,
+            totalTokens:
+              (response.usage?.input_tokens || 0) +
+              (response.usage?.output_tokens || 0),
+          },
+        };
+      });
     } catch (error) {
       return this.handleError(error);
     }
@@ -285,8 +290,11 @@ export class AnthropicProvider extends BaseLLMProvider {
 
   async streamChatCompletion(
     options: ChatCompletionOptions,
-    onMessage: (message: string) => void
+    onMessage: (message: string) => void,
+    onTiming?: (timing: TimingInfo & { streaming?: StreamingMetrics }) => void
   ): Promise<void> {
+    const metricsCollector = createStreamMetricsCollector();
+
     try {
       this.validateModel(options.model);
       this.validateInputTokens(options.model, options.messages);
@@ -298,42 +306,51 @@ export class AnthropicProvider extends BaseLLMProvider {
 
       const { messages } = this.formatMessages(options.messages);
 
-      // Handle provider-specific streaming
-      let stream;
-      if (this.providerType === "bedrock") {
-        stream = await (this.anthropic as AnthropicBedrock).messages.stream({
-          model: `anthropic.${options.model}`,
-          messages,
-          system: options.system,
-          max_tokens: maxTokens,
-          temperature,
-          stop_sequences: options.stop ? [options.stop].flat() : undefined,
-        });
-      } else if (this.providerType === "vertex") {
-        stream = await (this.anthropic as AnthropicVertex).messages.stream({
-          model: options.model,
-          messages,
-          system: options.system,
-          max_tokens: maxTokens,
-          temperature,
-          stop_sequences: options.stop ? [options.stop].flat() : undefined,
-        });
-      } else {
-        stream = await (this.anthropic as Anthropic).messages.stream({
-          model: options.model,
-          messages,
-          system: options.system,
-          max_tokens: maxTokens,
-          temperature,
-          stop_sequences: options.stop ? [options.stop].flat() : undefined,
-        });
-      }
+      const { timing, result: stream } = await measureResponseTime(async () => {
+        // Handle provider-specific streaming
+        let stream;
+        if (this.providerType === "bedrock") {
+          stream = await (this.anthropic as AnthropicBedrock).messages.stream({
+            model: `anthropic.${options.model}`,
+            messages,
+            system: options.system,
+            max_tokens: maxTokens,
+            temperature,
+            stop_sequences: options.stop ? [options.stop].flat() : undefined,
+          });
+        } else if (this.providerType === "vertex") {
+          stream = await (this.anthropic as AnthropicVertex).messages.stream({
+            model: options.model,
+            messages,
+            system: options.system,
+            max_tokens: maxTokens,
+            temperature,
+            stop_sequences: options.stop ? [options.stop].flat() : undefined,
+          });
+        } else {
+          stream = await (this.anthropic as Anthropic).messages.stream({
+            model: options.model,
+            messages,
+            system: options.system,
+            max_tokens: maxTokens,
+            temperature,
+            stop_sequences: options.stop ? [options.stop].flat() : undefined,
+          });
+        }
+        return stream;
+      });
 
       let accumulatedText = "";
+      let isFirstToken = true;
 
       return new Promise((resolve, reject) => {
         stream.on("text", (text: string) => {
+          if (isFirstToken) {
+            metricsCollector.markFirstToken();
+            isFirstToken = false;
+          }
           accumulatedText += text;
+          metricsCollector.addTokens(1);
           onMessage(text);
         });
 
@@ -350,14 +367,35 @@ export class AnthropicProvider extends BaseLLMProvider {
         });
 
         stream.on("error", (error: Error) => {
+          if (onTiming) {
+            onTiming({
+              ...timing,
+              streaming: metricsCollector.getMetrics(),
+            });
+          }
           reject(error);
         });
 
         stream.on("end", () => {
+          if (onTiming) {
+            onTiming({
+              ...timing,
+              streaming: metricsCollector.getMetrics(),
+            });
+          }
           resolve();
         });
       });
     } catch (error) {
+      // Ensure metrics are returned even on early failures
+      if (onTiming) {
+        onTiming({
+          startTime: performance.now(),
+          endTime: performance.now(),
+          duration: 0,
+          streaming: metricsCollector.getMetrics(),
+        });
+      }
       this.handleError(error);
       throw error; // Re-throw to ensure the promise rejects
     }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { StreamingMetrics } from "../utils/timing";
 
 export const MessageRoleSchema = z.enum(["system", "user", "assistant"]);
 export type MessageRole = z.infer<typeof MessageRoleSchema>;
@@ -13,10 +14,10 @@ export const ChatCompletionOptionsSchema = z.object({
   model: z.string(),
   messages: z.array(MessageSchema),
   system: z.string().optional(),
-  temperature: z.number().min(0).max(2).optional().default(1),
+  temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
   stop: z.union([z.string(), z.array(z.string())]).optional(),
-  stream: z.boolean().optional().default(false),
+  stream: z.boolean().optional(),
   logprobs: z.any().optional(),
   logit_bias: z.any().optional(),
   top_logprobs: z.any().optional(),
@@ -43,6 +44,16 @@ export interface LLMProvider {
   ): Promise<ChatCompletionResponse>;
   streamChatCompletion(
     options: ChatCompletionOptions,
-    onMessage: (message: string) => void
+    onMessage: (message: string) => void,
+    onTiming?: (timing: TimingInfo & { streaming?: StreamingMetrics }) => void
   ): Promise<void>;
+}
+
+/**
+ * Timing information for API calls
+ */
+export interface TimingInfo {
+  startTime: number;
+  endTime: number;
+  duration: number;
 }

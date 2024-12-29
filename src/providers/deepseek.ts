@@ -5,123 +5,53 @@ import {
   Message,
   TimingInfo,
 } from "../types";
-import { getGroqModel, isGroqModel, DEFAULT_MAX_TOKENS } from "../models/groq";
 import {
   measureResponseTime,
   createStreamMetricsCollector,
   StreamingMetrics,
 } from "../utils/timing";
 
-interface GroqMessage {
+interface OpenAIMessage {
   role: string;
   content: string;
 }
 
-interface GroqResponse {
+interface OpenAIResponse {
   id: string;
   object: string;
   created: number;
   model: string;
-  system_fingerprint: string;
   choices: Array<{
     index: number;
-    message: GroqMessage;
+    message: OpenAIMessage;
     finish_reason: string;
   }>;
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
-    prompt_time: number;
-    completion_time: number;
-    total_time: number;
   };
 }
 
-export class GroqProvider extends BaseLLMProvider {
+export class DeepSeekProvider extends BaseLLMProvider {
   constructor(apiKey: string) {
-    super(apiKey, "https://api.groq.com/openai/v1");
-  }
-
-  private validateModel(model: string): void {
-    if (!isGroqModel(model)) {
-      throw new Error(
-        `Invalid Groq model: ${model}. Available models: ${Object.keys(
-          getGroqModel(model) || {}
-        ).join(", ")}`
-      );
-    }
-  }
-
-  private validateMaxTokens(model: string, maxTokens?: number): number {
-    const modelInfo = getGroqModel(model);
-    if (!modelInfo) {
-      return DEFAULT_MAX_TOKENS;
-    }
-
-    const modelLimit = modelInfo.maxOutputTokens || DEFAULT_MAX_TOKENS;
-
-    if (!maxTokens) {
-      return Math.min(DEFAULT_MAX_TOKENS, modelLimit);
-    }
-
-    if (maxTokens > modelLimit) {
-      throw new Error(
-        `Max tokens ${maxTokens} exceeds model limit of ${modelLimit} for ${model}`
-      );
-    }
-
-    return maxTokens;
-  }
-
-  private validateTemperature(temperature?: number): number {
-    if (temperature === undefined) return 1;
-    if (temperature < 0 || temperature > 2) {
-      throw new Error("Temperature must be between 0 and 2");
-    }
-    // Convert 0 to smallest positive float32 as per Groq docs
-    return temperature === 0 ? 1e-8 : temperature;
-  }
-
-  private validateMessages(messages: Message[]): void {
-    for (const message of messages) {
-      if ("name" in message) {
-        throw new Error("Message name field is not supported by Groq");
-      }
-    }
-  }
-
-  private validateOptions(options: ChatCompletionOptions): void {
-    if (options.logprobs || options.logit_bias || options.top_logprobs) {
-      throw new Error(
-        "logprobs, logit_bias, and top_logprobs are not supported by Groq"
-      );
-    }
+    super(apiKey, "https://api.deepseek.com");
   }
 
   async chatCompletion(
     options: ChatCompletionOptions
   ): Promise<ChatCompletionResponse & { timing?: TimingInfo }> {
     try {
-      this.validateModel(options.model);
-      this.validateMessages(options.messages);
-      this.validateOptions(options);
-      const maxTokens = this.validateMaxTokens(
-        options.model,
-        options.maxTokens
-      );
-      const temperature = this.validateTemperature(options.temperature);
-
       return await this.measureApiCall(async () => {
-        const response = await this.client.post<GroqResponse>(
+        const response = await this.client.post<OpenAIResponse>(
           "/chat/completions",
           {
             model: options.model,
             messages: options.messages,
-            temperature,
-            max_tokens: maxTokens,
+            temperature: options.temperature,
+            max_tokens: options.maxTokens,
             stop: options.stop,
-            stream: false,
+            stream: options.stream,
           }
         );
 
@@ -155,23 +85,14 @@ export class GroqProvider extends BaseLLMProvider {
     const metricsCollector = createStreamMetricsCollector();
 
     try {
-      this.validateModel(options.model);
-      this.validateMessages(options.messages);
-      this.validateOptions(options);
-      const maxTokens = this.validateMaxTokens(
-        options.model,
-        options.maxTokens
-      );
-      const temperature = this.validateTemperature(options.temperature);
-
       const { timing, result: stream } = await measureResponseTime(async () => {
         const response = await this.client.post(
           "/chat/completions",
           {
             model: options.model,
             messages: options.messages,
-            temperature,
-            max_tokens: maxTokens,
+            temperature: options.temperature,
+            max_tokens: options.maxTokens,
             stop: options.stop,
             stream: true,
           },
