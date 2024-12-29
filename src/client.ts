@@ -48,7 +48,7 @@ export class LLMClient {
   }
 
   static createXAI(apiKey: string): LLMClient {
-    return new LLMClient(new XAIProvider(apiKey), "claude-3-5-sonnet-20240620");
+    return new LLMClient(new XAIProvider(apiKey), "grok-2-latest");
   }
 
   async chatCompletion(
