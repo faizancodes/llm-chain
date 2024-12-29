@@ -1,6 +1,6 @@
 # llm-chain
 
-A TypeScript library for easily interacting with various Large Language Model providers through a unified interface.
+A TypeScript library for easily interacting with various Large Language Model providers through a unified interface. Equipped with performance metrics for response time and streaming, useful for benchmarking and testing.
 
 ## Installation
 
@@ -15,6 +15,9 @@ npm install llm-chain
   - Groq
   - Gemini (Google)
   - Anthropic
+  - DeepSeek
+  - XAI
+
 - Type-safe API with TypeScript
 - Support for streaming responses
 - Built-in validation using Zod
@@ -155,14 +158,7 @@ await client.streamChatCompletion(
 - `gemini-1.5-flash-8b` (32k context, high volume)
 - `gemini-1.5-pro` (32k context, complex reasoning)
 
-#### Utility Models
-
-- `text-embedding-004` (Embeddings)
-- `aqa` (Question answering)
-
 ### Anthropic Models
-
-#### Claude 3 Models
 
 - `claude-3-5-sonnet-20241022` (Latest Sonnet)
 - `claude-3-5-haiku-20241022` (Latest Haiku)
@@ -170,6 +166,14 @@ await client.streamChatCompletion(
 - `claude-3-sonnet-20240229` (Balanced)
 - `claude-3-haiku-20240307` (Fast)
 - `claude-2.1` (Legacy)
+
+#### DeepSeek
+
+- `deepseek-chat` (Latest)
+
+#### XAI
+
+- `grok-2-latest` (Latest)
 
 ## Advanced Features
 
@@ -215,6 +219,7 @@ The library provides built-in error handling and validation:
 - Context window size validation
 - Streaming capability checks
 - Provider-specific error handling
+- Performance metrics for response time and streaming
 
 ## License
 
