@@ -21,6 +21,7 @@ export const ChatCompletionOptionsSchema = z.object({
   logprobs: z.any().optional(),
   logit_bias: z.any().optional(),
   top_logprobs: z.any().optional(),
+  response_format: z.any().optional(),
 });
 export type ChatCompletionOptions = z.infer<typeof ChatCompletionOptionsSchema>;
 
