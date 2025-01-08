@@ -45,3 +45,7 @@ export function getMaxOutputTokens(model: string): number {
 export function getDefaultDeepseekModel(): string {
   return "deepseek-chat";
 }
+
+export function getAllDeepseekModels(): string[] {
+  return Object.keys(DEEPSEEK_MODELS);
+}

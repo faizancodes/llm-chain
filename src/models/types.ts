@@ -5,15 +5,27 @@ export type ModelDeveloper =
   | "Mistral"
   | "OpenAI"
   | "Groq"
-  | "Anthropic";
+  | "Anthropic"
+  | "DeepSeek"
+  | "Qwen"
+  | "NousResearch"
+  | "Microsoft"
+  | "OpenChat"
+  | "01.AI"
+  | "DeepSeek"
+  | "Together"
+  | "Upstage"
+  | "Databricks"
+  | "NVIDIA"
+  | "xAI";
 
 export interface ModelInfo {
   id: string;
   developer: ModelDeveloper;
   contextWindow: number | null;
   maxOutputTokens: number | null;
-  maxFileSize: string | null;
-  modelCardUrl: string;
+  maxFileSize?: string | null;
+  modelCardUrl?: string;
   isDeprecated?: boolean;
   isPreview?: boolean;
 }

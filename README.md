@@ -15,6 +15,7 @@ npm install llm-chain
   - Groq
   - Gemini (Google)
   - Anthropic
+  - Together AI
   - DeepSeek
   - XAI
 

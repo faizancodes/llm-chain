@@ -2,18 +2,17 @@ import {
   OpenAICompatibleProvider,
   ProviderConfig,
 } from "./openai-compatible-base";
-import { ChatCompletionOptions } from "../types";
-import { isOpenAIModel, getAllOpenAIModels } from "../models/openai";
+import { isTogetherModel, getAllTogetherModels } from "../models/together";
 
-export class OpenAIProvider extends OpenAICompatibleProvider {
+export class TogetherAIProvider extends OpenAICompatibleProvider {
   constructor(apiKey: string) {
     const config: ProviderConfig = {
-      baseURL: "https://api.openai.com/v1",
+      baseURL: "https://api.together.xyz/v1",
       validateModel: (model: string) => {
-        if (!isOpenAIModel(model)) {
+        if (!isTogetherModel(model)) {
           throw new Error(
-            `Invalid OpenAI model: ${model}\n\nValid models:\n${Object.keys(
-              getAllOpenAIModels()
+            `Invalid Together model: ${model}\n\nValid models:\n${Object.keys(
+              getAllTogetherModels()
             )
               .map(m => `- ${m}`)
               .join("\n")}`

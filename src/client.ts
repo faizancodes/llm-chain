@@ -13,6 +13,7 @@ import { getDefaultGeminiModel } from "./models/gemini";
 import { getDefaultAnthropicModel } from "./models/anthropic";
 import { DeepSeekProvider } from "./providers/deepseek";
 import { XAIProvider } from "./providers/xAI";
+import { TogetherAIProvider } from "./providers/together";
 import { measureResponseTime, StreamingMetrics } from "./utils/timing";
 
 export class LLMClient {
@@ -49,6 +50,13 @@ export class LLMClient {
 
   static createXAI(apiKey: string): LLMClient {
     return new LLMClient(new XAIProvider(apiKey), "grok-2-latest");
+  }
+
+  static createTogether(apiKey: string): LLMClient {
+    return new LLMClient(
+      new TogetherAIProvider(apiKey),
+      "togethercomputer/llama-3.1-70b-versatile"
+    );
   }
 
   async chatCompletion(

@@ -29,6 +29,7 @@ async function main() {
   const openaiClient = LLMClient.createOpenAI(process.env.OPENAI_API_KEY!);
   const groqClient = LLMClient.createGroq(process.env.GROQ_API_KEY!);
   const geminiClient = LLMClient.createGemini(process.env.GOOGLE_API_KEY!);
+  const togetherClient = LLMClient.createTogether(process.env.TOGETHER_API_KEY!);
 
   console.log("\nTesting OpenAI streaming...");
   await openaiClient.streamChatCompletion(
@@ -64,6 +65,19 @@ async function main() {
     },
     message => process.stdout.write(message),
     timing => formatMetrics("Gemini", timing)
+  );
+
+
+  console.log("\n\nTesting Together streaming...");
+  await togetherClient.streamChatCompletion(
+    {
+      model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      messages: [{ role: "user", content: "What is the capital of France?" }],
+      temperature: 1,
+      stream: true,
+    },
+    message => process.stdout.write(message),
+    timing => formatMetrics("Together", timing)
   );
 }
 
